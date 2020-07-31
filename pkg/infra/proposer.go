@@ -3,7 +3,9 @@ package infra
 import (
 	"context"
 	"io"
-
+//	"fmt"
+	"time"
+	"sync/atomic"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/hyperledger/fabric-protos-go/peer"
@@ -16,6 +18,9 @@ type Proposers struct {
 	client int
 	logger *log.Logger
 }
+
+var Count1 int64
+var Count2 int64
 
 func CreateProposers(conn, client int, nodes []Node, logger *log.Logger) *Proposers {
 	var ps [][]*Proposer
@@ -63,6 +68,7 @@ func (p *Proposer) Start(signed, processed chan *Elements, done <-chan struct{},
 	for {
 		select {
 		case s := <-signed:
+			atomic.AddInt64(&Count1, 1)
 			//send sign proposal to peer for endorsement
 			r, err := p.e.ProcessProposal(context.Background(), s.SignedProp)
 			if err != nil || r.Response.Status < 200 || r.Response.Status >= 400 {
@@ -127,10 +133,18 @@ func (b *Broadcaster) Start(envs <-chan *Elements, done <-chan struct{}) {
 	for {
 		select {
 		case e := <-envs:
+			t1 := time.Now()
+			atomic.AddInt64(&Count2, 1)
 			err := b.c.Send(e.Envelope)
 			if err != nil {
 				b.logger.Errorf("Failed to broadcast env: %s\n", err)
 			}
+			time.Now().Sub(t1).Milliseconds()
+			
+			//if subTime > 10 {
+				//fmt.Println(subTime)
+			//}
+			
 
 		case <-done:
 			return
